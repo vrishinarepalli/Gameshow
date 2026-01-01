@@ -223,7 +223,7 @@
 
         <div class="input-group">
             <label for="totalImages">Total Images Available:</label>
-            <input type="number" id="totalImages" value="16" min="1">
+            <input type="number" id="totalImages" value="17" min="1">
         </div>
     </div>
 
@@ -253,28 +253,7 @@
         // Local state
         let currentIndex = 0;
         let revealed = false;
-        let totalImages = 16;
-        let shuffledOrder = [];
-        let currentPosition = -1; // Position in shuffled array
-
-        // Shuffle function
-        function shuffleArray(array) {
-            const shuffled = [...array];
-            for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-            }
-            return shuffled;
-        }
-
-        // Initialize shuffled order
-        function initializeShuffledOrder() {
-            const imageNumbers = Array.from({length: totalImages}, (_, i) => i + 1);
-            shuffledOrder = shuffleArray(imageNumbers);
-            currentPosition = -1;
-            currentIndex = 0;
-            revealed = false;
-        }
+        let totalImages = 17;
 
         // UI elements
         const prevBtn = document.getElementById('prevBtn');
@@ -288,17 +267,13 @@
 
         // Update UI
         function updateUI() {
-            if (currentIndex === 0) {
-                currentIndexSpan.textContent = '0';
-            } else {
-                currentIndexSpan.textContent = `${currentPosition + 1} of ${totalImages}`;
-            }
+            currentIndexSpan.textContent = currentIndex;
             currentRevealSpan.textContent = currentIndex === 0 ? 'Not Started' : (revealed ? 'ORIGINAL' : 'ALTERED');
 
             // Disable buttons based on state
-            prevBtn.disabled = (currentPosition <= 0);
+            prevBtn.disabled = (currentIndex <= 0);
             revealBtn.disabled = (currentIndex === 0);
-            nextBtn.disabled = (currentPosition >= totalImages - 1);
+            nextBtn.disabled = (currentIndex >= totalImages);
 
             // Update reveal button text
             if (currentIndex > 0) {
@@ -339,9 +314,8 @@
 
         // Previous button handler
         prevBtn.addEventListener('click', () => {
-            if (currentPosition > 0) {
-                currentPosition--;
-                currentIndex = shuffledOrder[currentPosition];
+            if (currentIndex > 0) {
+                currentIndex--;
                 revealed = false;
                 updateUI();
                 updateFirebase();
@@ -350,9 +324,8 @@
 
         // Next button handler
         nextBtn.addEventListener('click', () => {
-            if (currentPosition < totalImages - 1) {
-                currentPosition++;
-                currentIndex = shuffledOrder[currentPosition];
+            if (currentIndex < totalImages) {
+                currentIndex++;
                 revealed = false;
                 updateUI();
                 updateFirebase();
@@ -370,8 +343,9 @@
 
         // Reset button handler
         resetBtn.addEventListener('click', () => {
-            if (confirm('Are you sure you want to reset the game? This will shuffle the images in a new random order.')) {
-                initializeShuffledOrder();
+            if (confirm('Are you sure you want to reset the game?')) {
+                currentIndex = 0;
+                revealed = false;
                 updateUI();
                 updateFirebase();
             }
@@ -379,8 +353,7 @@
 
         // Total images input handler
         totalImagesInput.addEventListener('change', (e) => {
-            totalImages = parseInt(e.target.value) || 16;
-            initializeShuffledOrder();
+            totalImages = parseInt(e.target.value) || 17;
             updateUI();
         });
 
@@ -390,14 +363,6 @@
             if (data) {
                 currentIndex = data.imageIndex || 0;
                 revealed = data.revealed || false;
-
-                // Update currentPosition based on currentIndex
-                if (currentIndex > 0 && shuffledOrder.length > 0) {
-                    currentPosition = shuffledOrder.indexOf(currentIndex);
-                } else {
-                    currentPosition = -1;
-                }
-
                 updateUI();
                 statusDiv.textContent = 'Connected to Firebase';
                 statusDiv.className = 'status connected';
@@ -408,8 +373,7 @@
             statusDiv.className = 'status disconnected';
         });
 
-        // Initialize shuffled order and UI
-        initializeShuffledOrder();
+        // Initial UI update
         updateUI();
     </script>
 </body>
