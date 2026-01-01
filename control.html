@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gameshow Control Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #4CAF50;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            background-color: rgba(0,0,0,0.5);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .status.connected {
+            border: 2px solid #4CAF50;
+            color: #4CAF50;
+        }
+
+        .status.disconnected {
+            border: 2px solid #f44336;
+            color: #f44336;
+        }
+
+        .current-state {
+            background-color: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .state-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .state-label {
+            color: #888;
+        }
+
+        .state-value {
+            color: white;
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .button-row button {
+            flex: 1;
+        }
+
+        button {
+            padding: 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        #prevBtn {
+            background-color: #9C27B0;
+            color: white;
+        }
+
+        #prevBtn:hover {
+            background-color: #7B1FA2;
+        }
+
+        #nextBtn {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        #nextBtn:hover {
+            background-color: #1976D2;
+        }
+
+        #revealBtn {
+            background-color: #FF9800;
+            color: white;
+        }
+
+        #revealBtn:hover {
+            background-color: #F57C00;
+        }
+
+        #resetBtn {
+            background-color: #f44336;
+            color: white;
+        }
+
+        #resetBtn:hover {
+            background-color: #d32f2f;
+        }
+
+        .preview {
+            margin-bottom: 20px;
+            text-align: center;
+            background-color: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .preview h3 {
+            color: #4CAF50;
+            margin-bottom: 15px;
+        }
+
+        .preview img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            border: 2px solid #444;
+            object-fit: contain;
+        }
+
+        .preview-placeholder {
+            padding: 60px 20px;
+            background-color: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            color: #666;
+            font-size: 18px;
+            border: 2px dashed #444;
+        }
+
+        .input-group {
+            margin-top: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #888;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background-color: #2a2a2a;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gameshow Control Panel</h1>
+
+        <div class="status disconnected" id="status">
+            Disconnected from Firebase
+        </div>
+
+        <div class="current-state">
+            <div class="state-info">
+                <span class="state-label">Current Image:</span>
+                <span class="state-value" id="currentIndex">0</span>
+            </div>
+            <div class="state-info">
+                <span class="state-label">State:</span>
+                <span class="state-value" id="currentReveal">Not Started</span>
+            </div>
+        </div>
+
+        <div class="preview">
+            <h3>Main Display Preview:</h3>
+            <img id="previewImage" src="" alt="Preview" style="display: none;">
+            <div id="previewPlaceholder" class="preview-placeholder">No image selected</div>
+        </div>
+
+        <div class="controls">
+            <div class="button-row">
+                <button id="prevBtn">Previous Image</button>
+                <button id="nextBtn">Next Image</button>
+            </div>
+            <button id="revealBtn">Reveal Original</button>
+            <button id="resetBtn">Reset Game</button>
+        </div>
+
+        <div class="input-group">
+            <label for="totalImages">Total Images Available:</label>
+            <input type="number" id="totalImages" value="16" min="1">
+        </div>
+    </div>
+
+    <!-- Firebase SDK - Add your config here -->
+    <script type="module">
+        // Firebase imports
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDbWkpkMeWiDezmOFXRafYsxEfbNTRPsHE",
+            authDomain: "gamesh-8ab1b.firebaseapp.com",
+            databaseURL: "https://gamesh-8ab1b-default-rtdb.firebaseio.com",  // TODO: Update this after enabling Realtime Database
+            projectId: "gamesh-8ab1b",
+            storageBucket: "gamesh-8ab1b.firebasestorage.app",
+            messagingSenderId: "571873716920",
+            appId: "1:571873716920:web:80183f7ca7f50b1048a24d",
+            measurementId: "G-JX9BJCDPMK"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const gameStateRef = ref(database, 'gameState');
+
+        // Local state
+        let currentIndex = 0;
+        let revealed = false;
+        let totalImages = 16;
+        let shuffledOrder = [];
+        let currentPosition = -1; // Position in shuffled array
+
+        // Shuffle function
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Initialize shuffled order
+        function initializeShuffledOrder() {
+            const imageNumbers = Array.from({length: totalImages}, (_, i) => i + 1);
+            shuffledOrder = shuffleArray(imageNumbers);
+            currentPosition = -1;
+            currentIndex = 0;
+            revealed = false;
+        }
+
+        // UI elements
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const revealBtn = document.getElementById('revealBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusDiv = document.getElementById('status');
+        const currentIndexSpan = document.getElementById('currentIndex');
+        const currentRevealSpan = document.getElementById('currentReveal');
+        const totalImagesInput = document.getElementById('totalImages');
+
+        // Update UI
+        function updateUI() {
+            if (currentIndex === 0) {
+                currentIndexSpan.textContent = '0';
+            } else {
+                currentIndexSpan.textContent = `${currentPosition + 1} of ${totalImages}`;
+            }
+            currentRevealSpan.textContent = currentIndex === 0 ? 'Not Started' : (revealed ? 'ORIGINAL' : 'ALTERED');
+
+            // Disable buttons based on state
+            prevBtn.disabled = (currentPosition <= 0);
+            revealBtn.disabled = (currentIndex === 0);
+            nextBtn.disabled = (currentPosition >= totalImages - 1);
+
+            // Update reveal button text
+            if (currentIndex > 0) {
+                revealBtn.textContent = revealed ? 'Show Altered' : 'Reveal Original';
+            }
+
+            // Update preview image
+            const previewImage = document.getElementById('previewImage');
+            const previewPlaceholder = document.getElementById('previewPlaceholder');
+
+            if (currentIndex === 0) {
+                previewImage.style.display = 'none';
+                previewPlaceholder.style.display = 'block';
+                previewPlaceholder.textContent = 'No image selected';
+            } else {
+                const folder = revealed ? 'original' : 'altered';
+                const imagePath = `images/${folder}/${currentIndex}.png`;
+                previewImage.src = imagePath;
+                previewImage.style.display = 'block';
+                previewPlaceholder.style.display = 'none';
+            }
+        }
+
+        // Update Firebase
+        function updateFirebase() {
+            set(gameStateRef, {
+                imageIndex: currentIndex,
+                revealed: revealed,
+                timestamp: Date.now()
+            }).then(() => {
+                console.log('State updated in Firebase');
+            }).catch((error) => {
+                console.error('Error updating Firebase:', error);
+                statusDiv.textContent = 'Error updating Firebase';
+                statusDiv.className = 'status disconnected';
+            });
+        }
+
+        // Previous button handler
+        prevBtn.addEventListener('click', () => {
+            if (currentPosition > 0) {
+                currentPosition--;
+                currentIndex = shuffledOrder[currentPosition];
+                revealed = false;
+                updateUI();
+                updateFirebase();
+            }
+        });
+
+        // Next button handler
+        nextBtn.addEventListener('click', () => {
+            if (currentPosition < totalImages - 1) {
+                currentPosition++;
+                currentIndex = shuffledOrder[currentPosition];
+                revealed = false;
+                updateUI();
+                updateFirebase();
+            }
+        });
+
+        // Reveal button handler (toggle between original and altered)
+        revealBtn.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                revealed = !revealed;
+                updateUI();
+                updateFirebase();
+            }
+        });
+
+        // Reset button handler
+        resetBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset the game? This will shuffle the images in a new random order.')) {
+                initializeShuffledOrder();
+                updateUI();
+                updateFirebase();
+            }
+        });
+
+        // Total images input handler
+        totalImagesInput.addEventListener('change', (e) => {
+            totalImages = parseInt(e.target.value) || 16;
+            initializeShuffledOrder();
+            updateUI();
+        });
+
+        // Listen for Firebase changes (to sync state)
+        onValue(gameStateRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                currentIndex = data.imageIndex || 0;
+                revealed = data.revealed || false;
+
+                // Update currentPosition based on currentIndex
+                if (currentIndex > 0 && shuffledOrder.length > 0) {
+                    currentPosition = shuffledOrder.indexOf(currentIndex);
+                } else {
+                    currentPosition = -1;
+                }
+
+                updateUI();
+                statusDiv.textContent = 'Connected to Firebase';
+                statusDiv.className = 'status connected';
+            }
+        }, (error) => {
+            console.error('Firebase connection error:', error);
+            statusDiv.textContent = 'Error connecting to Firebase';
+            statusDiv.className = 'status disconnected';
+        });
+
+        // Initialize shuffled order and UI
+        initializeShuffledOrder();
+        updateUI();
+    </script>
+</body>
+</html>
